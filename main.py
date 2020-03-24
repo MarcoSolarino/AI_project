@@ -18,13 +18,16 @@ def create_data_set(file):
     return data
 
 
+data = create_data_set("kr-vs-kp.data")
+
+
 # elenca i possibili valori di un attributo
-def attribute_values(attribute_index, examples):
+def attribute_values(attribute_index, data):
     values = []
-    for i in range(len(examples.index)):
+    for i in range(len(data.index)):
         #  index = examples.columns.get_loc(attribute_index)
-        if values.__contains__(examples.iloc[i][attribute_index]) is False:
-            values.append(examples.iloc[i][attribute_index])
+        if values.__contains__(data.iloc[i][attribute_index]) is False:
+            values.append(data.iloc[i][attribute_index])
     return values
 
 
@@ -33,6 +36,7 @@ def split_data_set(attribute_index, examples):
     return df_tuple
 
 
+# TODO aggiornamento dei pesi per gli attributi mancanti
 # calcola la probabilità che un esempio abbia per valore dell'attributo indicato da attribute_index value
 def prob_attribute_value(attribute_index, value, examples):
     prob = 0
@@ -79,9 +83,12 @@ def importance(attributes, examples):
 
 
 class Node:
-    def __init__(self, examples):
+    def __init__(self, examples, attribute):
         self.examples = examples
+        self.current_attr = attribute
         self.subtree = []
+        self.type = None
+        self.arcs = []
 
 
 def plurality_value(examples):
@@ -101,38 +108,63 @@ def get_attributes_list(examples):
 
 
 def decision_tree_learning(examples, attrib, pater_examples):
-    print(attrib)
     if examples.empty:
-        return plurality_value(pater_examples)
+        leaf = Node(None, 'class')
+        leaf.type = plurality_value(pater_examples)
+        return leaf
+
     result = attribute_values(len(examples.columns.values) - 2, examples)
     if len(result) == 1:
-        return result[0]
+        leaf = Node(None, 'class')
+        leaf.type = result[0]
+        return leaf
+
     if attrib is None:
-        return plurality_value(examples)
+        leaf = Node(None, 'class')
+        leaf.type = plurality_value(examples)
+        return leaf
+
     attribute = importance(attrib, examples)
-    tree = Node(examples)
+    tree = Node(examples, attribute)
     col_index = examples.columns.get_loc(attribute)
-    values = attribute_values(col_index, examples)
+    values = attribute_values(col_index, data)
+
     for v in values:
         exs = examples[examples[attribute] == v]
         new_attributes = copy.copy(attrib)
         new_attributes.remove(attribute)
+        tree.arcs.append(v)
         tree.subtree.append(decision_tree_learning(exs, new_attributes, examples))
     return tree
+
+
+# TODO quando l'albero è creato con pochi esempi, non tutti i rami si creano, e dunque certi valori non vengono trovati in arcs
+def classifier(tree, example):
+    while tree.current_attr != 'class':
+        attribute = tree.current_attr
+        value = example[attribute].values[0]
+        index = tree.arcs.index(value)
+        tree = tree.subtree[index]
+    print('the class is ' + tree.type)
 
 
 # here starts the main
 
 
-data = create_data_set("car.data")
+training_set = data.sample(10)
 
-attributes = get_attributes_list(data)
+attributes = get_attributes_list(training_set)
 
-vettore_prova = ['attr0', 'attr1', 'attr2', 'attr4']
+dtree = decision_tree_learning(training_set, attributes, None)
 
-# print(importance(vettore_prova, data))
+for i in range(200):
 
-decision_tree_learning(data, attributes, None)
+    sample = data.sample(1)
+
+    print('\n')
+    print(sample)
+
+    classifier(dtree, sample)
 
 
 
