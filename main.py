@@ -18,9 +18,10 @@ def create_data_set(file):
     return data
 
 
-data = create_data_set("kr-vs-kp.data")
+data = create_data_set("nursery.data")
 
 
+# TODO modifica in modo che calcoli una sola volta i valori e li salvi in una struttura dati
 # elenca i possibili valori di un attributo
 def attribute_values(attribute_index, data):
     values = []
@@ -31,9 +32,15 @@ def attribute_values(attribute_index, data):
     return values
 
 
-def split_data_set(attribute_index, examples):
-    df_tuple = dict(tuple(examples.index.groupby(attribute_index)))
-    return df_tuple
+def pick_examples(attribute, attr_value, examples):
+    total = examples.index
+    exs = examples[examples[attribute] == attr_value]
+    fraction = exs.index / total
+    unknown_examples = examples[examples[attribute] == '?']
+    for i in range(unknown_examples.index):
+        unknown_examples['weight'][i] = fraction
+    exs.append(unknown_examples, ignore_index=True)
+    return exs
 
 
 # TODO aggiornamento dei pesi per gli attributi mancanti
@@ -127,10 +134,10 @@ def decision_tree_learning(examples, attrib, pater_examples):
     attribute = importance(attrib, examples)
     tree = Node(examples, attribute)
     col_index = examples.columns.get_loc(attribute)
-    values = attribute_values(col_index, data)
+    values = attribute_values(col_index, data)   # TODO calcolare una volta i possibili valori e darli in ingresso
 
     for v in values:
-        exs = examples[examples[attribute] == v]
+        exs = pick_examples(attribute, v, examples)
         new_attributes = copy.copy(attrib)
         new_attributes.remove(attribute)
         tree.arcs.append(v)
@@ -138,7 +145,6 @@ def decision_tree_learning(examples, attrib, pater_examples):
     return tree
 
 
-# TODO quando l'albero è creato con pochi esempi, non tutti i rami si creano, e dunque certi valori non vengono trovati in arcs
 def classifier(tree, example):
     while tree.current_attr != 'class':
         attribute = tree.current_attr
@@ -151,7 +157,7 @@ def classifier(tree, example):
 # here starts the main
 
 
-training_set = data.sample(10)
+training_set = data.sample(100)
 
 attributes = get_attributes_list(training_set)
 
