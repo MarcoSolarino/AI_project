@@ -18,35 +18,34 @@ def create_data_set(file):
     return data
 
 
-data = create_data_set("nursery.data")
-
-
-# TODO modifica in modo che calcoli una sola volta i valori e li salvi in una struttura dati
-# elenca i possibili valori di un attributo
-def attribute_values(attribute_index, data):
-    values = []
-    for i in range(len(data.index)):
-        #  index = examples.columns.get_loc(attribute_index)
-        if values.__contains__(data.iloc[i][attribute_index]) is False:
-            values.append(data.iloc[i][attribute_index])
-    return values
+# elenca i possibili valori degli attributi
+def attribute_values(data_set):
+    values_matrix = []
+    for j in range(len(data_set.columns) - 1):
+        values = []
+        for i in range(len(data_set.index)):
+            if values.__contains__(data_set.iloc[i][j]) is False:
+                values.append(data_set.iloc[i][j])
+        values_matrix.append(copy.copy(values))
+    return values_matrix
 
 
 def pick_examples(attribute, attr_value, examples):
-    total = examples.index
+    total = len(examples.index)
     exs = examples[examples[attribute] == attr_value]
     fraction = exs.index / total
     unknown_examples = examples[examples[attribute] == '?']
-    for i in range(unknown_examples.index):
+    for i in range(len(unknown_examples.index)):
         unknown_examples['weight'][i] = fraction
     exs.append(unknown_examples, ignore_index=True)
     return exs
 
 
-# TODO aggiornamento dei pesi per gli attributi mancanti
 # calcola la probabilità che un esempio abbia per valore dell'attributo indicato da attribute_index value
 def prob_attribute_value(attribute_index, value, examples):
     prob = 0
+    if len(examples.index) == 0:
+        return prob
     for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
         if examples.iloc[j][attribute_index] == value:
             prob += examples.iloc[j][len(examples.columns) - 1]
@@ -54,33 +53,36 @@ def prob_attribute_value(attribute_index, value, examples):
     for j in range(len(examples.index)):
         if examples.iloc[j][attribute_index] == '?':
             prob += examples.iloc[j][len(examples.columns) - 1] * frac
-    return prob/len(examples.index)
+    p = prob/len(examples.index)
+    return p
 
 
-def entropy(attribute_index, examples):
-    values = attribute_values(attribute_index, examples)
+def entropy(attribute_index, values, examples):
     e = 0
     for v in values:
         p = prob_attribute_value(attribute_index, v, examples)
-        e += - (p * math.log(p, 2))
+        if p != 0:
+            e += - (p * math.log(p, 2))
     return e
 
 
-def remainder(attribute_index, examples):
-    values = attribute_values(attribute_index, examples)
+def remainder(attribute_index, values, class_values, examples):
     r = 0
     for v in values:
         name = examples.columns.values[attribute_index]
-        ex_attr_v = examples[(examples[name] == v)]
-        r += prob_attribute_value(attribute_index, v, examples) * entropy(len(examples.columns) - 2, ex_attr_v)
+        ex_attr_v = examples[(examples[name] == v) | (examples[name] == '?')]
+        r += prob_attribute_value(attribute_index, v, examples) \
+             * entropy(len(examples.columns) - 2, class_values, ex_attr_v)
     return r
 
 
-def importance(attributes, examples):
+def importance(attributes, values_matrix, examples):
     gain_vector = []
     for j in attributes:
         col_index = examples.columns.get_loc(j)
-        gain = entropy(len(examples.columns.values) - 2, examples) - remainder(col_index, examples)
+        class_position = len(examples.columns.values) - 2
+        gain = entropy(class_position, values_matrix[class_position], examples) \
+                - remainder(col_index, values_matrix[col_index], values_matrix[class_position], examples)
         gain_vector.append(copy.copy(gain))
     find_max = numpy.array(copy.copy(gain_vector))
     result = numpy.amax(find_max)
@@ -114,34 +116,46 @@ def get_attributes_list(examples):
     return list
 
 
-def decision_tree_learning(examples, attrib, pater_examples):
-    if examples.empty:
+def same_classification(examples):
+    classification = []
+    for i in range(len(examples.index)):
+        if len(classification) == 0:
+            classification.append(examples.iloc[i][len(examples.columns) - 2])
+        elif examples.iloc[i][len(examples.columns) - 2] not in classification:
+            return False
+    return True
+
+
+def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
+    if len(examples.index) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(pater_examples)
+        print('esempi terminati')
         return leaf
 
-    result = attribute_values(len(examples.columns.values) - 2, examples)
-    if len(result) == 1:
+    if same_classification(examples):
         leaf = Node(None, 'class')
-        leaf.type = result[0]
+        leaf.type = examples.iloc[0][len(examples.columns) - 2]
+        print('trovata classe')
         return leaf
 
     if attrib is None:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(examples)
+        print('attributi terminati')
         return leaf
 
-    attribute = importance(attrib, examples)
+    attribute = importance(attrib, values_matrix, examples)
     tree = Node(examples, attribute)
     col_index = examples.columns.get_loc(attribute)
-    values = attribute_values(col_index, data)   # TODO calcolare una volta i possibili valori e darli in ingresso
+    values = values_matrix[col_index]
 
     for v in values:
         exs = pick_examples(attribute, v, examples)
         new_attributes = copy.copy(attrib)
         new_attributes.remove(attribute)
         tree.arcs.append(v)
-        tree.subtree.append(decision_tree_learning(exs, new_attributes, examples))
+        tree.subtree.append(decision_tree_learning(exs, new_attributes, values_matrix, examples))
     return tree
 
 
@@ -156,12 +170,19 @@ def classifier(tree, example):
 
 # here starts the main
 
+data = create_data_set("car.data")
 
-training_set = data.sample(100)
+values_matrix = attribute_values(data)
+
+print(values_matrix)
+
+# print(pick_examples('attr3', 'more', data))
+
+training_set = data.sample(frac=0.5)
 
 attributes = get_attributes_list(training_set)
 
-dtree = decision_tree_learning(training_set, attributes, None)
+dtree = decision_tree_learning(training_set, attributes,  values_matrix, None)
 
 for i in range(200):
 
