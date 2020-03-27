@@ -33,12 +33,12 @@ def attribute_values(data_set):
 def pick_examples(attribute, attr_value, examples):
     total = len(examples.index)
     exs = examples[examples[attribute] == attr_value]
-    fraction = exs.index / total
+    fraction = len(exs.index) / total
     unknown_examples = examples[examples[attribute] == '?']
     for i in range(len(unknown_examples.index)):
-        unknown_examples['weight'][i] = fraction
-    exs.append(unknown_examples, ignore_index=True)
-    return exs
+        unknown_examples.iloc[i, len(unknown_examples.columns) - 1] = fraction
+    result = exs.append(unknown_examples, ignore_index=True)
+    return result
 
 
 # calcola la probabilità che un esempio abbia per valore dell'attributo indicato da attribute_index value
@@ -126,23 +126,20 @@ def same_classification(examples):
     return True
 
 
-def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
+def decision_tree_learning(examples, attrib, values_matrix, pater_examples):  # TODO fix SettingWithCopyWarning
     if len(examples.index) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(pater_examples)
-        print('esempi terminati')
         return leaf
 
     if same_classification(examples):
         leaf = Node(None, 'class')
-        leaf.type = examples.iloc[0][len(examples.columns) - 2]
-        print('trovata classe')
+        leaf.type = examples.iloc[0, len(examples.columns) - 2]
         return leaf
 
-    if attrib is None:
+    if len(attrib) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(examples)
-        print('attributi terminati')
         return leaf
 
     attribute = importance(attrib, values_matrix, examples)
@@ -159,13 +156,24 @@ def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
     return tree
 
 
+def uniform_deletion(p, data_set):
+    for i in range(len(data_set.index)):
+        for j in range(len(data_set.columns) - 2):
+            x = random.random()
+            if x <= p:
+                data_set.iloc[i, j] = '?'
+
+
 def classifier(tree, example):
     while tree.current_attr != 'class':
         attribute = tree.current_attr
         value = example[attribute].values[0]
-        index = tree.arcs.index(value)
-        tree = tree.subtree[index]
-    print('the class is ' + tree.type)
+        if value != '?':
+            index = tree.arcs.index(value)
+            tree = tree.subtree[index]
+        else:
+            return plurality_value(tree.examples)
+    return tree.type
 
 
 # here starts the main
@@ -174,9 +182,7 @@ data = create_data_set("car.data")
 
 values_matrix = attribute_values(data)
 
-print(values_matrix)
-
-# print(pick_examples('attr3', 'more', data))
+uniform_deletion(0.5, data)
 
 training_set = data.sample(frac=0.5)
 
@@ -191,7 +197,7 @@ for i in range(200):
     print('\n')
     print(sample)
 
-    classifier(dtree, sample)
+    print('this example is in class ' + classifier(dtree, sample))
 
 
 
