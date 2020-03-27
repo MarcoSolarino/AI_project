@@ -105,7 +105,7 @@ def plurality_value(examples):
     if len(max) == 1:
         return max[0]
     else:
-        return random.choice(max)
+        return random.choice(max)  # tie-breaker
 
 
 def get_attributes_list(examples):
@@ -130,16 +130,19 @@ def decision_tree_learning(examples, attrib, values_matrix, pater_examples):  # 
     if len(examples.index) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(pater_examples)
+        print('esempi terminati, attribuita classe')
         return leaf
 
     if same_classification(examples):
         leaf = Node(None, 'class')
         leaf.type = examples.iloc[0, len(examples.columns) - 2]
+        print('trovata classe')
         return leaf
 
     if len(attrib) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(examples)
+        print('attributi terminati, esempiata classe')
         return leaf
 
     attribute = importance(attrib, values_matrix, examples)
@@ -176,28 +179,39 @@ def classifier(tree, example):
     return tree.type
 
 
-# here starts the main
+def test_precision(data_set, p):
+    data = create_data_set(data_set)
+    values_matrix = attribute_values(data)
+    uniform_deletion(p, data)
+    training_set = data.sample(frac=0.5)
+    attributes = get_attributes_list(training_set)
+    dtree = decision_tree_learning(training_set, attributes,  values_matrix, None)
 
-data = create_data_set("car.data")
+    success = 0
+    for i in range(200):
 
-values_matrix = attribute_values(data)
+        sample = data.sample(1)
 
-uniform_deletion(0.5, data)
+        if classifier(dtree, sample) == sample.iloc[0][len(sample.columns) - 2]:
+            success += 1
 
-training_set = data.sample(frac=0.5)
+    return success / 200
 
-attributes = get_attributes_list(training_set)
 
-dtree = decision_tree_learning(training_set, attributes,  values_matrix, None)
+# main
 
-for i in range(200):
+print(str(test_precision('car.data', 0.5) * 100) + '%')
 
-    sample = data.sample(1)
 
-    print('\n')
-    print(sample)
 
-    print('this example is in class ' + classifier(dtree, sample))
+
+
+
+
+
+
+
+
 
 
 
