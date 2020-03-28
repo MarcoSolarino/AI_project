@@ -4,6 +4,7 @@ import math
 import numpy
 import random
 
+# pd.options.mode.chained_assignment = None
 
 def create_data_set(file):
     data = pd.read_csv(file)
@@ -24,8 +25,8 @@ def attribute_values(data_set):
     for j in range(len(data_set.columns) - 1):
         values = []
         for i in range(len(data_set.index)):
-            if values.__contains__(data_set.iloc[i][j]) is False:
-                values.append(data_set.iloc[i][j])
+            if values.__contains__(data_set.iloc[i, j]) is False:
+                values.append(data_set.iloc[i, j])
         values_matrix.append(copy.copy(values))
     return values_matrix
 
@@ -36,7 +37,8 @@ def pick_examples(attribute, attr_value, examples):
     fraction = len(exs.index) / total
     unknown_examples = examples[examples[attribute] == '?']
     for i in range(len(unknown_examples.index)):
-        unknown_examples.iloc[i, len(unknown_examples.columns) - 1] = fraction
+        # unknown_examples.iloc[i, len(unknown_examples.columns) - 1] = fraction
+        unknown_examples.iat[i, len(unknown_examples.columns) - 1] = fraction
     result = exs.append(unknown_examples, ignore_index=True)
     return result
 
@@ -47,12 +49,12 @@ def prob_attribute_value(attribute_index, value, examples):
     if len(examples.index) == 0:
         return prob
     for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
-        if examples.iloc[j][attribute_index] == value:
-            prob += examples.iloc[j][len(examples.columns) - 1]
+        if examples.iloc[j, attribute_index] == value:
+            prob += examples.iloc[j, len(examples.columns) - 1]
     frac = copy.copy(prob) / len(examples.index)  # la probabilità che un esempio abbia value come valore dell'attributo
     for j in range(len(examples.index)):
-        if examples.iloc[j][attribute_index] == '?':
-            prob += examples.iloc[j][len(examples.columns) - 1] * frac
+        if examples.iloc[j, attribute_index] == '?':
+            prob += examples.iloc[j, len(examples.columns) - 1] * frac
     p = prob/len(examples.index)
     return p
 
@@ -120,29 +122,26 @@ def same_classification(examples):
     classification = []
     for i in range(len(examples.index)):
         if len(classification) == 0:
-            classification.append(examples.iloc[i][len(examples.columns) - 2])
-        elif examples.iloc[i][len(examples.columns) - 2] not in classification:
+            classification.append(examples.iloc[i, len(examples.columns) - 2])
+        elif examples.iloc[i, len(examples.columns) - 2] not in classification:
             return False
     return True
 
 
-def decision_tree_learning(examples, attrib, values_matrix, pater_examples):  # TODO fix SettingWithCopyWarning
+def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
     if len(examples.index) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(pater_examples)
-        print('esempi terminati, attribuita classe')
         return leaf
 
     if same_classification(examples):
         leaf = Node(None, 'class')
         leaf.type = examples.iloc[0, len(examples.columns) - 2]
-        print('trovata classe')
         return leaf
 
     if len(attrib) == 0:
         leaf = Node(None, 'class')
         leaf.type = plurality_value(examples)
-        print('attributi terminati, esempiata classe')
         return leaf
 
     attribute = importance(attrib, values_matrix, examples)
@@ -164,7 +163,8 @@ def uniform_deletion(p, data_set):
         for j in range(len(data_set.columns) - 2):
             x = random.random()
             if x <= p:
-                data_set.iloc[i, j] = '?'
+                # data_set.iloc[i, j] = '?'
+                data_set.iat[i, j] = '?'
 
 
 def classifier(tree, example):
@@ -192,7 +192,7 @@ def test_precision(data_set, p):
 
         sample = data.sample(1)
 
-        if classifier(dtree, sample) == sample.iloc[0][len(sample.columns) - 2]:
+        if classifier(dtree, sample) == sample.iloc[0, len(sample.columns) - 2]:
             success += 1
 
     return success / 200
@@ -200,18 +200,6 @@ def test_precision(data_set, p):
 
 # main
 
-print(str(test_precision('car.data', 0.5) * 100) + '%')
+for i in range(0, 6):
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    print('p = ' + str(i / 10) + ': ' + str(test_precision('car.data', i / 10) * 100) + '%')
