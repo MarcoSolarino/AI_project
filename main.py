@@ -3,8 +3,8 @@ import pandas as pd
 import math
 import numpy
 import random
+from sklearn.model_selection import train_test_split
 
-# pd.options.mode.chained_assignment = None
 
 def create_data_set(file):
     data = pd.read_csv(file)
@@ -25,8 +25,8 @@ def attribute_values(data_set):
     for j in range(len(data_set.columns) - 1):
         values = []
         for i in range(len(data_set.index)):
-            if values.__contains__(data_set.iloc[i, j]) is False:
-                values.append(data_set.iloc[i, j])
+            if values.__contains__(data_set.iat[i, j]) is False:
+                values.append(data_set.iat[i, j])
         values_matrix.append(copy.copy(values))
     return values_matrix
 
@@ -37,7 +37,6 @@ def pick_examples(attribute, attr_value, examples):
     fraction = len(exs.index) / total
     unknown_examples = examples[examples[attribute] == '?']
     for i in range(len(unknown_examples.index)):
-        # unknown_examples.iloc[i, len(unknown_examples.columns) - 1] = fraction
         unknown_examples.iat[i, len(unknown_examples.columns) - 1] = fraction
     result = exs.append(unknown_examples, ignore_index=True)
     return result
@@ -49,12 +48,12 @@ def prob_attribute_value(attribute_index, value, examples):
     if len(examples.index) == 0:
         return prob
     for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
-        if examples.iloc[j, attribute_index] == value:
-            prob += examples.iloc[j, len(examples.columns) - 1]
+        if examples.iat[j, attribute_index] == value:
+            prob += examples.iat[j, len(examples.columns) - 1]
     frac = copy.copy(prob) / len(examples.index)  # la probabilità che un esempio abbia value come valore dell'attributo
     for j in range(len(examples.index)):
-        if examples.iloc[j, attribute_index] == '?':
-            prob += examples.iloc[j, len(examples.columns) - 1] * frac
+        if examples.iat[j, attribute_index] == '?':
+            prob += examples.iat[j, len(examples.columns) - 1] * frac
     p = prob/len(examples.index)
     return p
 
@@ -73,8 +72,8 @@ def remainder(attribute_index, values, class_values, examples):
     for v in values:
         name = examples.columns.values[attribute_index]
         ex_attr_v = examples[(examples[name] == v) | (examples[name] == '?')]
-        r += prob_attribute_value(attribute_index, v, examples) \
-             * entropy(len(examples.columns) - 2, class_values, ex_attr_v)
+        h = entropy(len(examples.columns) - 2, class_values, ex_attr_v)
+        r += prob_attribute_value(attribute_index, v, examples) * h
     return r
 
 
@@ -83,8 +82,9 @@ def importance(attributes, values_matrix, examples):
     for j in attributes:
         col_index = examples.columns.get_loc(j)
         class_position = len(examples.columns.values) - 2
-        gain = entropy(class_position, values_matrix[class_position], examples) \
-                - remainder(col_index, values_matrix[col_index], values_matrix[class_position], examples)
+        h = entropy(class_position, values_matrix[class_position], examples)
+        r = remainder(col_index, values_matrix[col_index], values_matrix[class_position], examples)
+        gain = h - r
         gain_vector.append(copy.copy(gain))
     find_max = numpy.array(copy.copy(gain_vector))
     result = numpy.amax(find_max)
@@ -103,27 +103,27 @@ class Node:
 
 
 def plurality_value(examples):
-    max = examples["class"].mode()
-    if len(max) == 1:
-        return max[0]
+    most = examples["class"].mode()
+    if len(most) == 1:
+        return most[0]
     else:
         return random.choice(max)  # tie-breaker
 
 
 def get_attributes_list(examples):
-    list = []
+    attributes = []
     for i in examples.columns.values:
         if (i != "class") and (i != "weight"):
-            list.append(i)
-    return list
+            attributes.append(i)
+    return attributes
 
 
 def same_classification(examples):
     classification = []
     for i in range(len(examples.index)):
         if len(classification) == 0:
-            classification.append(examples.iloc[i, len(examples.columns) - 2])
-        elif examples.iloc[i, len(examples.columns) - 2] not in classification:
+            classification.append(examples.iat[i, len(examples.columns) - 2])
+        elif examples.iat[i, len(examples.columns) - 2] not in classification:
             return False
     return True
 
@@ -136,7 +136,7 @@ def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
 
     if same_classification(examples):
         leaf = Node(None, 'class')
-        leaf.type = examples.iloc[0, len(examples.columns) - 2]
+        leaf.type = examples.iat[0, len(examples.columns) - 2]
         return leaf
 
     if len(attrib) == 0:
@@ -163,7 +163,6 @@ def uniform_deletion(p, data_set):
         for j in range(len(data_set.columns) - 2):
             x = random.random()
             if x <= p:
-                # data_set.iloc[i, j] = '?'
                 data_set.iat[i, j] = '?'
 
 
@@ -183,23 +182,19 @@ def test_precision(data_set, p):
     data = create_data_set(data_set)
     values_matrix = attribute_values(data)
     uniform_deletion(p, data)
-    training_set = data.sample(frac=0.5)
+    training_set, test_set = train_test_split(data, test_size=0.2)
     attributes = get_attributes_list(training_set)
-    dtree = decision_tree_learning(training_set, attributes,  values_matrix, None)
 
-    success = 0
-    for i in range(200):
+    dtree = decision_tree_learning(training_set, attributes, values_matrix, None)
 
-        sample = data.sample(1)
-
-        if classifier(dtree, sample) == sample.iloc[0, len(sample.columns) - 2]:
-            success += 1
-
-    return success / 200
+    correct = 0
+    for i in range(len(test_set.index)):
+        if classifier(dtree, test_set.iloc[[i]]) == test_set.iat[i, len(test_set.columns) - 2]:
+            correct += 1
+    return correct / len(test_set.index)
 
 
 # main
+for pb in range(0, 6):
 
-for i in range(0, 6):
-
-    print('p = ' + str(i / 10) + ': ' + str(test_precision('car.data', i / 10) * 100) + '%')
+    print('p = ' + str(pb / 10) + ': ' + str(test_precision('nursery.data', pb / 10) * 100) + '%')
