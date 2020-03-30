@@ -32,29 +32,52 @@ def attribute_values(data_set):
 
 
 def pick_examples(attribute, attr_value, examples):
-    total = len(examples.index)
+    num = 0
+    k = examples.columns.get_loc(attribute)
+    for j in range(len(examples.index)):
+        if examples.iat[j, k] == attr_value:
+            num += examples.iat[j, len(examples.columns) - 1]
+    if num != 0:
+        denom = 0
+        for j in range(len(examples.index)):
+            if examples.iat[j, k] != '?':
+                denom += examples.iat[j, len(examples.columns) - 1]
+        if denom == 0:
+            fraction = 0
+        else:
+            fraction = num / denom
+    else:
+        fraction = 0
     exs = examples[examples[attribute] == attr_value]
-    fraction = len(exs.index) / total
     unknown_examples = examples[examples[attribute] == '?']
     for i in range(len(unknown_examples.index)):
-        unknown_examples.iat[i, len(unknown_examples.columns) - 1] = fraction
+        unknown_examples.iat[i, len(unknown_examples.columns) - 1] *= fraction
     result = exs.append(unknown_examples, ignore_index=True)
     return result
 
 
 # calcola la probabilità che un esempio abbia per valore dell'attributo indicato da attribute_index value
 def prob_attribute_value(attribute_index, value, examples):
-    prob = 0
+    num = 0
     if len(examples.index) == 0:
-        return prob
+        return num
     for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
         if examples.iat[j, attribute_index] == value:
-            prob += examples.iat[j, len(examples.columns) - 1]
-    frac = copy.copy(prob) / len(examples.index)  # la probabilità che un esempio abbia value come valore dell'attributo
+            num += examples.iat[j, len(examples.columns) - 1]
+        if num == 0:
+            return 0
+    denom = 0
+    for j in range(len(examples.index)):
+        if examples.iat[j, attribute_index] != '?':
+            denom += examples.iat[j, len(examples.columns) - 1]
+    if denom == 0:
+        return 0
+    else:
+        frac = num / denom  # la probabilità che un esempio abbia value come valore dell'attributo
     for j in range(len(examples.index)):
         if examples.iat[j, attribute_index] == '?':
-            prob += examples.iat[j, len(examples.columns) - 1] * frac
-    p = prob/len(examples.index)
+            num += (examples.iat[j, len(examples.columns) - 1] * frac)
+    p = num / examples['weight'].sum()
     return p
 
 
@@ -94,9 +117,9 @@ def importance(attributes, values_matrix, examples):
 
 
 class Node:
-    def __init__(self, examples, attribute):
-        self.examples = examples
+    def __init__(self, pl_vl, attribute):
         self.current_attr = attribute
+        self.plurality_class = pl_vl
         self.subtree = []
         self.type = None
         self.arcs = []
@@ -107,7 +130,7 @@ def plurality_value(examples):
     if len(most) == 1:
         return most[0]
     else:
-        return random.choice(max)  # tie-breaker
+        return random.choice(most)  # tie-breaker
 
 
 def get_attributes_list(examples):
@@ -145,14 +168,13 @@ def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
         return leaf
 
     attribute = importance(attrib, values_matrix, examples)
-    tree = Node(examples, attribute)
+    tree = Node(plurality_value(examples), attribute)
     col_index = examples.columns.get_loc(attribute)
     values = values_matrix[col_index]
-
+    new_attributes = copy.copy(attrib)
+    new_attributes.remove(attribute)
     for v in values:
         exs = pick_examples(attribute, v, examples)
-        new_attributes = copy.copy(attrib)
-        new_attributes.remove(attribute)
         tree.arcs.append(v)
         tree.subtree.append(decision_tree_learning(exs, new_attributes, values_matrix, examples))
     return tree
@@ -174,19 +196,17 @@ def classifier(tree, example):
             index = tree.arcs.index(value)
             tree = tree.subtree[index]
         else:
-            return plurality_value(tree.examples)
+            return tree.plurality_class
     return tree.type
 
 
 def test_precision(data_set, p):
     data = create_data_set(data_set)
     values_matrix = attribute_values(data)
+    attributes = get_attributes_list(data.sample(1))
     uniform_deletion(p, data)
     training_set, test_set = train_test_split(data, test_size=0.2)
-    attributes = get_attributes_list(training_set)
-
     dtree = decision_tree_learning(training_set, attributes, values_matrix, None)
-
     correct = 0
     for i in range(len(test_set.index)):
         if classifier(dtree, test_set.iloc[[i]]) == test_set.iat[i, len(test_set.columns) - 2]:
@@ -195,6 +215,44 @@ def test_precision(data_set, p):
 
 
 # main
-for pb in range(0, 6):
 
-    print('p = ' + str(pb / 10) + ': ' + str(test_precision('nursery.data', pb / 10) * 100) + '%')
+print("Tic Tac Toe")
+print("Avvio con probabilità 0: ")
+print(test_precision('tic-tac-toe.data', 0))
+
+print("Avvio con probabilità 0.1: ")
+print(test_precision('tic-tac-toe.data', 0.1))
+
+print("Avvio con probabilità 0.2: ")
+print(test_precision('tic-tac-toe.data', 0.2))
+
+print("Avvio con probabilità 0.5: ")
+print(test_precision('tic-tac-toe.data', 0.5))
+
+
+print("\n" + "Nursery")
+print("Avvio con probabilità 0: ")
+print(test_precision('nursery.data', 0))
+
+print("Avvio con probabilità 0.1: ")
+print(test_precision('nursery.data', 0.1))
+
+print("Avvio con probabilità 0.2: ")
+print(test_precision('nursery.data', 0.2))
+
+print("Avvio con probabilità 0.5: ")
+print(test_precision('nursery.data', 0.5))
+
+
+print("\n" + "Car")
+print("Avvio con probabilità 0: ")
+print(test_precision('car.data', 0))
+
+print("Avvio con probabilità 0.1: ")
+print(test_precision('car.data', 0.1))
+
+print("Avvio con probabilità 0.2: ")
+print(test_precision('car.data', 0.2))
+
+print("Avvio con probabilità 0.5: ")
+print(test_precision('car.data', 0.5))
