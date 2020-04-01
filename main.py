@@ -37,17 +37,14 @@ def pick_examples(attribute, attr_value, examples):
     for j in range(len(examples.index)):
         if examples.iat[j, k] == attr_value:
             num += examples.iat[j, len(examples.columns) - 1]
-    if num != 0:
-        denom = 0
-        for j in range(len(examples.index)):
-            if examples.iat[j, k] != '?':
-                denom += examples.iat[j, len(examples.columns) - 1]
-        if denom == 0:
-            fraction = 0
-        else:
-            fraction = num / denom
-    else:
+    denom = 0
+    for j in range(len(examples.index)):
+        if examples.iat[j, k] != '?':
+            denom += examples.iat[j, len(examples.columns) - 1]
+    if denom == 0:
         fraction = 0
+    else:
+        fraction = num / denom
     exs = examples[examples[attribute] == attr_value]
     unknown_examples = examples[examples[attribute] == '?']
     for i in range(len(unknown_examples.index)):
@@ -64,8 +61,6 @@ def prob_attribute_value(attribute_index, value, examples):
     for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
         if examples.iat[j, attribute_index] == value:
             num += examples.iat[j, len(examples.columns) - 1]
-        if num == 0:
-            return 0
     denom = 0
     for j in range(len(examples.index)):
         if examples.iat[j, attribute_index] != '?':
@@ -86,8 +81,8 @@ def entropy(attribute_index, values, examples):
     for v in values:
         p = prob_attribute_value(attribute_index, v, examples)
         if p != 0:
-            e += - (p * math.log(p, 2))
-    return e
+            e += (p * math.log(p, 2))
+    return - e
 
 
 def remainder(attribute_index, values, class_values, examples):
@@ -168,9 +163,11 @@ def decision_tree_learning(examples, attrib, values_matrix, pater_examples):
         return leaf
 
     attribute = importance(attrib, values_matrix, examples)
-    tree = Node(plurality_value(examples), attribute)
+    tree = Node(plurality_value(examples), attribute)  # al node viene data la classe più frequente
+
     col_index = examples.columns.get_loc(attribute)
-    values = values_matrix[col_index]
+    values = values_matrix[col_index]  # valori possibili dell'attributo
+
     new_attributes = copy.copy(attrib)
     new_attributes.remove(attribute)
     for v in values:
@@ -193,10 +190,10 @@ def classifier(tree, example):
         attribute = tree.current_attr
         value = example[attribute].values[0]
         if value != '?':
-            index = tree.arcs.index(value)
+            index = tree.arcs.index(value)  # restituisce l'indice dell'arco
             tree = tree.subtree[index]
         else:
-            return tree.plurality_class
+            return tree.plurality_class   # ritorna la classe più comune tra gli esempi a quel nodo
     return tree.type
 
 
