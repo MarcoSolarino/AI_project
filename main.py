@@ -7,11 +7,9 @@ from sklearn.model_selection import train_test_split
 
 
 def create_data_set(file):
-    data = pd.read_csv(file)
-    col = len(data.columns)
-    for i in range(col):
-        data.columns.values[i] = 'attr' + str(i)
-    data.columns.values[col - 1] = 'class'
+    data = pd.read_csv(file, header=None)
+    data.columns = ['attr_{}'.format(int(i)) for i in data.columns]
+    data.columns.values[len(data.columns) - 1] = 'class'
     weight = []
     for i in range(len(data.index)):
         weight.append(1)
