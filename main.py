@@ -29,16 +29,22 @@ def attribute_values(data_set):
     return values_matrix
 
 
-def pick_examples(attribute, attr_value, examples):
+# restituisce la frazione di esempi (con valore dell'attributo noto) con valore attr_value
+def compute_fraction(examples, attr_position, attr_value):
     num = 0
-    k = examples.columns.get_loc(attribute)
     for j in range(len(examples.index)):
-        if examples.iat[j, k] == attr_value:
+        if examples.iat[j, attr_position] == attr_value:
             num += examples.iat[j, len(examples.columns) - 1]
     denom = 0
     for j in range(len(examples.index)):
-        if examples.iat[j, k] != '?':
+        if examples.iat[j, attr_position] != '?':
             denom += examples.iat[j, len(examples.columns) - 1]
+    return num, denom
+
+
+def pick_examples(attribute, attr_value, examples):
+    k = examples.columns.get_loc(attribute)
+    num, denom = compute_fraction(examples, k, attr_value)
     if denom == 0:
         fraction = 0
     else:
@@ -53,16 +59,7 @@ def pick_examples(attribute, attr_value, examples):
 
 # calcola la probabilità che un esempio abbia per valore dell'attributo indicato da attribute_index value
 def prob_attribute_value(attribute_index, value, examples):
-    num = 0
-    if len(examples.index) == 0:
-        return num
-    for j in range(len(examples.index)):  # sommo i pesi degli esempi con valore dell'attributo noto
-        if examples.iat[j, attribute_index] == value:
-            num += examples.iat[j, len(examples.columns) - 1]
-    denom = 0
-    for j in range(len(examples.index)):
-        if examples.iat[j, attribute_index] != '?':
-            denom += examples.iat[j, len(examples.columns) - 1]
+    num, denom = compute_fraction(examples, attribute_index, value)
     if denom == 0:
         return 0
     else:
@@ -211,43 +208,14 @@ def test_precision(data_set, p):
 
 # main
 
-print("Tic Tac Toe")
-print("Avvio con probabilità 0: ")
-print(test_precision('tic-tac-toe.data', 0))
+probs = [0, 0.1, 0.2, 0.5]
 
-print("Avvio con probabilità 0.1: ")
-print(test_precision('tic-tac-toe.data', 0.1))
-
-print("Avvio con probabilità 0.2: ")
-print(test_precision('tic-tac-toe.data', 0.2))
-
-print("Avvio con probabilità 0.5: ")
-print(test_precision('tic-tac-toe.data', 0.5))
-
-
-print("\n" + "Nursery")
-print("Avvio con probabilità 0: ")
-print(test_precision('nursery.data', 0))
-
-print("Avvio con probabilità 0.1: ")
-print(test_precision('nursery.data', 0.1))
-
-print("Avvio con probabilità 0.2: ")
-print(test_precision('nursery.data', 0.2))
-
-print("Avvio con probabilità 0.5: ")
-print(test_precision('nursery.data', 0.5))
-
-
-print("\n" + "Car")
-print("Avvio con probabilità 0: ")
-print(test_precision('car.data', 0))
-
-print("Avvio con probabilità 0.1: ")
-print(test_precision('car.data', 0.1))
-
-print("Avvio con probabilità 0.2: ")
-print(test_precision('car.data', 0.2))
-
-print("Avvio con probabilità 0.5: ")
-print(test_precision('car.data', 0.5))
+for pb in probs:
+    results = []
+    for itr in range(20):
+        results.append(test_precision("car.data", pb))
+    average = 0
+    for r in results:
+        average += r
+    average /= 20
+    print("Test su car.data con precisione" + str(pb))
