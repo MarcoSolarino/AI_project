@@ -204,18 +204,3 @@ def test_precision(data_set, p):
         if classifier(dtree, test_set.iloc[[i]]) == test_set.iat[i, len(test_set.columns) - 2]:
             correct += 1
     return correct / len(test_set.index)
-
-
-# main
-
-probs = [0, 0.1, 0.2, 0.5]
-
-for pb in probs:
-    results = []
-    for itr in range(20):
-        results.append(test_precision("car.data", pb))
-    average = 0
-    for r in results:
-        average += r
-    average /= 20
-    print("Test su car.data con precisione" + str(pb))
